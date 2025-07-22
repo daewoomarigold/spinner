@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Class Spinner</title>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <!-- GSAP & Winwheel -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/zarocknz/javascript-winwheel@master/Winwheel.min.js"></script>
+
+  <!-- Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+
+  <style>
+    /* ────────────────────────────────────────────
+       BACKGROUND VIDEO
+    ───────────────────────────────────────────── */
+    #bgVideo {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
+      z-index: -2;
+      /* darken via brightness + a gray overlay using box-shadow hack */
+      filter: brightness(0.9);
+    }
+    #videoOverlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(50,50,50,0.05);
+      z-index: -1;
+    }
+
+    /* ────────────────────────────────────────────
+       GLOBAL & LAYOUT (+ DARK MODE)
+    ───────────────────────────────────────────── */
+    html, body {
+      margin: 0; padding: 0;
+      height: 100%;
+      background: transparent; /* let video show through */
+      color: #f1f1f1;
+      font-family: sans-serif;
+    }
+    h1 {
+      margin: 0;
+      padding: 12px;
+      background: rgba(31,31,31,0.9);
+      border-bottom: 1px solid #444;
+      text-align: center;
+      font-size: 1.4rem;
+      z-index: 1;
+      position: relative;
+    }
+    #mainContainer {
+      display: flex;
+      height: calc(100vh - 50px);
+      z-index: 1;
+      position: relative;
+    }
+
+    /* ────────────────────────────────────────────
+       SPINNER CANVAS
+    ───────────────────────────────────────────── */
+    #spinnerContainer {
+      flex: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(30,30,30,0.8);
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    #wheelCanvas {
+      width: min(80vw, 80vh);
+      height: min(80vw, 80vh);
+      border: none;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    /* ────────────────────────────────────────────
+       CONTROLS & STUDENT LIST
+    ───────────────────────────────────────────── */
+    #controlsContainer {
+      flex: 1;
+      max-width: 300px;
+      background: rgba(30,30,30,0.8);
+      border-left: 1px solid #555;
+      padding: 16px;
+      box-sizing: border-box;
+      overflow-y: auto;
+    }
+    #controlsContainer select {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 12px;
+      background: #3c3c3c;
+      color: #f1f1f1;
+      border: 1px solid #555;
+      font-size: 1rem;
+    }
+    #studentList {
+      margin-top: 24px;
+      font-size: 1.3rem;
+    }
+    #studentList h2 {
+      font-size: 1.1rem;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .student-row {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      column-gap: 12px;
+      padding: 4px 0;
+      align-items: center;
+    }
+    .student-name   { text-align: left; }
+    .student-points { text-align: center; }
+
+    /* ────────────────────────────────────────────
+       WINNER POPUP
+    ───────────────────────────────────────────── */
+    #winnerPopup {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      display: none;
+      background: rgba(0,0,0,0.9);
+      justify-content: center;
+      align-items: center;
+      z-index: 2;
+    }
+    #winnerContent {
+      background: #3c3c3c;
+      padding: 24px 32px;
+      border-radius: 8px;
+      text-align: center;
+      color: #f1f1f1;
+      max-width: 80%;
+    }
+    #winnerMessage { font-size: 2rem; margin-bottom: 16px; }
+    #closePopup {
+      padding: 8px 16px;
+      background: #5a5a5a;
+      color: #f1f1f1;
+      border: 1px solid #777;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background video + dark overlay -->
+  <video id="bgVideo" src="islandvideo.mp4" autoplay muted loop></video>
+  <div id="videoOverlay"></div>
+
+  <h1>🎉 Spin to Select a Student! 🎉</h1>
+
+  <div id="mainContainer">
+    <div id="spinnerContainer">
+      <canvas id="wheelCanvas" width="800" height="800"></canvas>
+    </div>
+    <div id="controlsContainer">
+      <select id="classSelect">
+        <option value="">-- Select Class --</option>
+      </select>
+      <div id="studentList">
+        <h2>Student List</h2>
+      </div>
+    </div>
+  </div>
+
+  <!-- Winner Popup -->
+  <div id="winnerPopup">
+    <div id="winnerContent">
+      <div id="winnerMessage"></div>
+      <button id="closePopup">OK</button>
+    </div>
+  </div>
+
+  <script>
+    // ────────────────────────────────────────────
+    // CONFIGURATION & STATE
+    // ────────────────────────────────────────────
+    const firebaseConfig = {
+      apiKey: "AIzaSyDNNuSuHAqpms8UvOTCDmrEnXN648eTkxo",
+      authDomain: "classroompoints.firebaseapp.com",
+      projectId: "classroompoints",
+      storageBucket: "classroompoints.firebasestorage.app",
+      messagingSenderId: "176805498618",
+      appId: "1:176805498618:web:2071d90825bafb78154343",
+      measurementId: "G-BLJYG5JYQW"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let wheel, segments = [], unsubscribeListener = null;
+    let previousDaily = {}, firstSnapshot = true;
+    const usedHues = new Set(), segmentColors = {};
+
+    // Preload sounds
+    const tickAudio     = new Audio('tick.mp3');          tickAudio.volume     = 0.3;
+    const addPointAudio = new Audio('addpoint.mp3');      addPointAudio.volume = 0.5;
+    const victoryAudio  = new Audio('spinnerwinner.mp3'); victoryAudio.volume  = 0.7;
+
+    // Slow down the background video
+    const bgVid = document.getElementById('bgVideo');
+    bgVid.playbackRate = 0.5;
+
+    // ────────────────────────────────────────────
+    // COLOR HELPERS
+    // ────────────────────────────────────────────
+    function hueDistance(a, b) {
+      const d = Math.abs(a - b);
+      return Math.min(d, 360 - d);
+    }
+    function parseHue(hsl) {
+      const m = /^hsl\((\d+),/.exec(hsl);
+      return m ? +m[1] : 0;
+    }
+    function getRandomColor(prevHue = null) {
+      let hue, tries = 0;
+      do {
+        hue = Math.floor(Math.random() * 360);
+        tries++;
+      } while (
+        (usedHues.has(hue) ||
+         (prevHue !== null && hueDistance(prevHue, hue) < 30))
+        && tries < 100
+      );
+      usedHues.add(hue);
+      return `hsl(${hue},70%,60%)`;
+    }
+
+    // ────────────────────────────────────────────
+    // AUDIO HELPERS
+    // ────────────────────────────────────────────
+    function playTick() {
+      tickAudio.currentTime = 0;
+      tickAudio.play();
+    }
+    function playAddPoint() {
+      addPointAudio.currentTime = 0;
+      addPointAudio.play();
+    }
+
+    // ────────────────────────────────────────────
+    // WHEEL MANAGEMENT
+    // ────────────────────────────────────────────
+    function buildWheel() {
+      wheel = new Winwheel({
+        canvasId: 'wheelCanvas',
+        numSegments: segments.length,
+        segments: segments.map(s => ({
+          text: s.text,
+          fillStyle: s.fillStyle,
+          textFillStyle: s.textFillStyle
+        })),
+        pins: {
+          number: segments.length,
+          fillStyle: 'silver',
+          outerRadius: 4
+        },
+        animation: {
+          type: 'spinToStop',
+          duration: 8,
+          spins: 12,
+          easing: 'Power4.easeOut',
+          callbackSound: playTick,
+          soundTrigger: 'pin',
+          callbackFinished: announceWinner
+        },
+        pointerGuide: {
+          display: true,
+          strokeStyle: 'red',
+          lineWidth: 3
+        }
+      });
+    }
+
+    function startSpin() {
+      if (!wheel) { alert('Load a class first!'); return; }
+      document.getElementById('winnerPopup').style.display = 'none';
+      wheel.stopAnimation(false);
+      wheel.rotationAngle = 0;
+      wheel.draw();
+      wheel.startAnimation();
+    }
+
+    function announceWinner(segment) {
+      victoryAudio.currentTime = 0;
+      victoryAudio.play();
+
+      confetti({
+        particleCount: 400,
+        spread: 180,
+        startVelocity: 40,
+        ticks: 200,
+        origin: { x: 0.5, y: 0.6 },
+        scalar: 1.2,
+        zIndex: 2000
+      });
+
+      const popup = document.getElementById('winnerPopup');
+      document.getElementById('winnerMessage').textContent =
+        `🎉 Congratulations, ${segment.text}! 🎉`;
+      popup.style.display = 'flex';
+    }
+
+    // ────────────────────────────────────────────
+    // DATA LOADING & UI UPDATE
+    // ────────────────────────────────────────────
+    async function populateClasses() {
+      const sel = document.getElementById('classSelect');
+      const snap = await db.collection('classes').get();
+      sel.innerHTML = '<option value="">-- Select Class --</option>';
+      snap.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.id;
+        opt.textContent = d.id;
+        sel.appendChild(opt);
+      });
+    }
+
+    function loadSpinner() {
+      const cls = document.getElementById('classSelect').value;
+      if (!cls) return;
+
+      if (unsubscribeListener) unsubscribeListener();
+      segments = [];
+
+      unsubscribeListener = db
+        .collection('classes').doc(cls).collection('students')
+        .onSnapshot(snapshot => {
+          // detect daily-point increases
+          const current = {};
+          snapshot.forEach(d => current[d.id] = d.data().points?.daily || 0);
+          if (!firstSnapshot) {
+            Object.keys(current).forEach(id => {
+              if (current[id] > (previousDaily[id] || 0)) {
+                playAddPoint();
+              }
+            });
+          }
+          firstSnapshot = false;
+          previousDaily = current;
+
+          // rebuild list & segments
+          const listDiv = document.getElementById('studentList');
+          listDiv.innerHTML = '<h2>Student List</h2>';
+          segments = [];
+          let prevHue = null;
+
+          snapshot.forEach(docSnap => {
+            const { name, points } = docSnap.data();
+            const daily = points?.daily || 0;
+
+            if (!segmentColors[name]) {
+              segmentColors[name] = getRandomColor(prevHue);
+            }
+            prevHue = parseHue(segmentColors[name]);
+
+            // sidebar row
+            const row = document.createElement('div');
+            row.className = 'student-row';
+            const pts = document.createElement('span');
+            pts.className = 'student-points';
+            pts.textContent = daily;
+            pts.style.color = segmentColors[name];
+            const nm = document.createElement('span');
+            nm.className = 'student-name';
+            nm.textContent = name;
+            row.appendChild(pts);
+            row.appendChild(nm);
+            listDiv.appendChild(row);
+
+            // wheel segments
+            for (let i = 0; i < daily; i++) {
+              segments.push({
+                text: name,
+                fillStyle: segmentColors[name],
+                textFillStyle: '#000'
+              });
+            }
+          });
+
+          buildWheel();
+        });
+    }
+
+    // ────────────────────────────────────────────
+    // EVENTS & INITIALIZATION
+    // ────────────────────────────────────────────
+    document.getElementById('wheelCanvas')
+            .addEventListener('click', startSpin);
+
+    document.getElementById('classSelect')
+            .addEventListener('change', loadSpinner);
+
+    document.getElementById('closePopup')
+            .addEventListener('click', () => {
+      document.getElementById('winnerPopup').style.display = 'none';
+      victoryAudio.pause();
+      victoryAudio.currentTime = 0;
+    });
+
+    populateClasses();
+  </script>
+</body>
+</html>
