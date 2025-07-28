@@ -18,23 +18,18 @@
 
   <style>
     /* ────────────────────────────────────────────
-       BACKGROUND VIDEO
-    ───────────────────────────────────────────── */
-  body {
-      background: url("islandvideo.gif") no-repeat center center fixed;
-      background-size: cover;
-    }
-
-    /* ────────────────────────────────────────────
-       GLOBAL & LAYOUT (+ DARK MODE)
+       BACKGROUND GIF
     ───────────────────────────────────────────── */
     html, body {
       margin: 0; padding: 0;
       height: 100%;
-      background: transparent; /* let video show through */
+      background: url('islandvideo.gif') no-repeat center center fixed;
+      background-size: cover;
       color: #f1f1f1;
       font-family: sans-serif;
+      overflow: hidden;
     }
+
     h1 {
       margin: 0;
       padding: 12px;
@@ -45,6 +40,7 @@
       z-index: 1;
       position: relative;
     }
+
     #mainContainer {
       display: flex;
       height: calc(100vh - 50px);
@@ -64,6 +60,7 @@
       padding: 8px;
       box-sizing: border-box;
     }
+
     #wheelCanvas {
       width: min(80vw, 80vh);
       height: min(80vw, 80vh);
@@ -84,6 +81,7 @@
       box-sizing: border-box;
       overflow-y: auto;
     }
+
     #controlsContainer select {
       width: 100%;
       padding: 8px;
@@ -93,15 +91,18 @@
       border: 1px solid #555;
       font-size: 1rem;
     }
+
     #studentList {
       margin-top: 24px;
       font-size: 1.3rem;
     }
+
     #studentList h2 {
       font-size: 1.1rem;
       text-align: center;
       margin-bottom: 8px;
     }
+
     .student-row {
       display: grid;
       grid-template-columns: auto 1fr;
@@ -109,6 +110,7 @@
       padding: 4px 0;
       align-items: center;
     }
+
     .student-name   { text-align: left; }
     .student-points { text-align: center; }
 
@@ -125,6 +127,7 @@
       align-items: center;
       z-index: 2;
     }
+
     #winnerContent {
       background: #3c3c3c;
       padding: 24px 32px;
@@ -133,7 +136,9 @@
       color: #f1f1f1;
       max-width: 80%;
     }
+
     #winnerMessage { font-size: 2rem; margin-bottom: 16px; }
+
     #closePopup {
       padding: 8px 16px;
       background: #5a5a5a;
