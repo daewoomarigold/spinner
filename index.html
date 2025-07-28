@@ -20,23 +20,9 @@
     /* ────────────────────────────────────────────
        BACKGROUND VIDEO
     ───────────────────────────────────────────── */
-    #bgVideo {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100vw;
-      height: 100vh;
-      object-fit: cover;
-      z-index: -2;
-      /* darken via brightness + a gray overlay using box-shadow hack */
-      filter: brightness(0.9);
-    }
-    #videoOverlay {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(50,50,50,0.05);
-      z-index: -1;
+  body {
+      background: url("islandvideo.gif") no-repeat center center fixed;
+      background-size: cover;
     }
 
     /* ────────────────────────────────────────────
