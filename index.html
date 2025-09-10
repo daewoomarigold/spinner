@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Class Spinner</title>
 
-  <!-- Firebase SDK -->
+  <!-- Firebase SDK (compat) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
   <!-- GSAP & Winwheel -->
@@ -17,32 +18,35 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
 
   <style>
-    html, body {
-      margin: 0; padding: 0; height: 100%;
-      background: url('islandvideo.gif') no-repeat center center fixed;
-      background-size: cover; color: #f1f1f1; font-family: sans-serif;
-      overflow: hidden;
-    }
-    h1 { margin: 0; padding: 12px; background: rgba(31,31,31,0.9);
-      border-bottom: 1px solid #444; text-align: center; font-size: 1.4rem; position:relative; z-index:1; }
-    #mainContainer { display: flex; height: calc(100vh - 50px); position:relative; z-index:1; }
-    #spinnerContainer { flex: 2; display:flex; align-items:center; justify-content:center; background: rgba(30,30,30,0.8); padding:8px; box-sizing:border-box; }
-    #wheelCanvas { width: min(80vw, 80vh); height: min(80vw, 80vh); border:none; background:transparent; cursor: pointer; }
-    #controlsContainer { flex:1; max-width: 320px; background: rgba(30,30,30,0.8); border-left:1px solid #555; padding:16px; box-sizing:border-box; overflow-y:auto; }
-    #controlsContainer select, #controlsContainer button, #controlsContainer label { width:100%; margin-bottom:12px; font-size:1rem; }
+    html, body { margin:0; padding:0; height:100%;
+      background:url('islandvideo.gif') no-repeat center center fixed;
+      background-size:cover; color:#f1f1f1; font-family:sans-serif; overflow:hidden; }
+    h1 { margin:0; padding:12px; background:rgba(31,31,31,0.9);
+      border-bottom:1px solid #444; text-align:center; font-size:1.4rem; position:relative; z-index:1; }
+    #mainContainer { display:flex; height:calc(100vh - 50px); position:relative; z-index:1; }
+    #spinnerContainer { flex:2; display:flex; align-items:center; justify-content:center;
+      background:rgba(30,30,30,0.8); padding:8px; box-sizing:border-box; }
+    #wheelCanvas { width:min(80vw,80vh); height:min(80vw,80vh); border:none; background:transparent; cursor:pointer; }
+    #controlsContainer { flex:1; max-width:340px; background:rgba(30,30,30,0.8);
+      border-left:1px solid #555; padding:16px; box-sizing:border-box; overflow-y:auto; }
+    #controlsContainer select, #controlsContainer button, #controlsContainer label {
+      width:100%; margin-bottom:12px; font-size:1rem; }
     #controlsContainer select { padding:8px; background:#3c3c3c; color:#f1f1f1; border:1px solid #555; }
     #spinBtn { padding:10px; background:#4a7ef2; color:#fff; border:1px solid #3b64c0; cursor:pointer; }
+    .authBtn { padding:8px; border:1px solid #3b3b3b; background:#555; color:#fff; cursor:pointer; }
     .subtle { font-size:0.85rem; color:#cbd5e1; margin-top:-6px; margin-bottom:12px; display:block; }
+    .hint { font-size:0.8rem; color:#9aa6b2; margin-bottom:8px; }
     #studentList { margin-top:16px; font-size:1.2rem; }
     #studentList h2 { font-size:1.05rem; text-align:center; margin-bottom:8px; }
     .student-row { display:grid; grid-template-columns:auto 1fr; column-gap:12px; padding:4px 0; align-items:center; }
     .student-name { text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .student-points { text-align:center; min-width:2ch; }
-    #winnerPopup { position:fixed; inset:0; display:none; background:rgba(0,0,0,0.9); justify-content:center; align-items:center; z-index:2; }
+
+    #winnerPopup { position:fixed; inset:0; display:none; background:rgba(0,0,0,0.9);
+      justify-content:center; align-items:center; z-index:2; }
     #winnerContent { background:#3c3c3c; padding:24px 32px; border-radius:8px; text-align:center; color:#f1f1f1; max-width:80%; }
     #winnerMessage { font-size:2rem; margin-bottom:16px; }
     #closePopup { padding:8px 16px; background:#5a5a5a; color:#f1f1f1; border:1px solid #777; font-size:1rem; cursor:pointer; }
-    .hint { font-size:0.8rem; color:#9aa6b2; margin-bottom:8px; }
   </style>
 </head>
 <body>
@@ -54,12 +58,19 @@
       <canvas id="wheelCanvas" width="800" height="800" aria-label="Spin wheel canvas"></canvas>
     </div>
     <div id="controlsContainer">
+      <!-- Auth controls -->
+      <button id="signInBtn" class="authBtn">Sign in (Google)</button>
+      <button id="signOutBtn" class="authBtn" style="display:none">Sign out</button>
+      <div id="authStatus" class="subtle">Not signed in — stats will NOT save.</div>
+
+      <!-- Class + spin -->
       <select id="classSelect" aria-label="Select class">
         <option value="">-- Select Class --</option>
       </select>
       <button id="spinBtn" title="Spin (also click the wheel)">Spin</button>
       <span class="subtle">Winners cool off for one spin; non-winners quietly get a boost.</span>
       <label class="hint">Fairness mode is always on: no back-to-back winners and a gentle pity timer.</label>
+
       <div id="studentList"><h2>Student List</h2></div>
     </div>
   </div>
@@ -73,7 +84,7 @@
 
   <script>
     // ────────────────────────────────────────────
-    // FIREBASE
+    // FIREBASE INIT (compat)
     // ────────────────────────────────────────────
     const firebaseConfig = {
       apiKey: "AIzaSyB17jY--gDsic8lCJ-jun1BdLFW_vz-tBI",
@@ -85,7 +96,9 @@
       measurementId: "G-BLJYG5JYQW"
     };
     firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+    const db   = firebase.firestore();
+    const auth = firebase.auth();
+    const provider = new firebase.auth.GoogleAuthProvider();
 
     // ────────────────────────────────────────────
     // STATE
@@ -99,7 +112,7 @@
     let usedHues = new Set();
     let segmentColors = {};                  // keyed by student doc id
     let ownerIndexMap = Object.create(null); // studentId -> [segment indices]
-    window._lastStudents = [];               // latest students list
+    window._lastStudents = [];               // latest students
     window.recentWinners = [];               // anti-repeat (persisted per class)
 
     const MAX_TOTAL_SEGMENTS = 400;
@@ -111,6 +124,8 @@
     const addPointAudio = new Audio('addpoint.mp3');      addPointAudio.volume = 0.5;
     const victoryAudio  = new Audio('spinnerwinner.mp3'); victoryAudio.volume  = 0.7;
     function safePlay(a){ try{ a.currentTime=0; a.play().catch(()=>{});}catch(e){} }
+    function playTick(){ safePlay(tickAudio); }
+    function playAddPoint(){ safePlay(addPointAudio); }
 
     // Hi-DPI canvas
     function setupHiDPICanvas(id, cssSizePx=800) {
@@ -125,7 +140,7 @@
       return canvas;
     }
 
-    // Color helpers
+    // Colors
     function hueDistance(a,b){ const d=Math.abs(a-b); return Math.min(d,360-d); }
     function getRandomColor(prevHue=null){
       let hue, tries=0;
@@ -135,13 +150,7 @@
       return `hsl(${hue},70%,60%)`;
     }
 
-    // Audio hooks
-    function playTick(){ safePlay(tickAudio); }
-    function playAddPoint(){ safePlay(addPointAudio); }
-
-    // ────────────────────────────────────────────
-    // VISUAL SEGMENTS (FACADE)
-    // ────────────────────────────────────────────
+    // VISUAL SEGMENTS (Facade)
     function buildVisualSegmentsFromSnapshot(snapshot, colorById) {
       const students = [];
       let totalRequested = 0;
@@ -182,17 +191,15 @@
       return { students, visualSegments };
     }
 
-    // ────────────────────────────────────────────
-    // FAIRNESS PICK (TRUTH)
-    // ────────────────────────────────────────────
+    // FAIRNESS PICK (Truth)
     function pickWeightedFair(students, { pity=true, noRepeatK=1 } = {}) {
       const now = Date.now();
       const dayMs = 86400000;
 
-      const base  = 0.2;   // tiny floor
-      const alpha = 0.9;   // miss streak boost
-      const beta  = 0.12;  // days-since-last-win boost
-      const gamma = 2.5;   // cooldown penalty for the very last winner
+      const base  = 0.2;
+      const alpha = 0.9;
+      const beta  = 0.12;
+      const gamma = 2.5;
 
       const recent = window.recentWinners.slice(0, noRepeatK);
 
@@ -224,9 +231,7 @@
       return i>=0 ? { index:i, student:students[i], weights } : null;
     }
 
-    // ────────────────────────────────────────────
-    // SPIN TARGETING
-    // ────────────────────────────────────────────
+    // Spin targeting: land on one of winner's visible slices
     function spinToAnySliceOfWinner(wheel, winner, rng = Math.random) {
       const indices = ownerIndexMap[winner.id] || [];
       if (!indices.length) return false;
@@ -238,9 +243,7 @@
       return true;
     }
 
-    // ────────────────────────────────────────────
-    // WHEEL
-    // ────────────────────────────────────────────
+    // Wheel
     function buildWheel() {
       if (!segments || segments.length === 0) { wheel = null; return; }
       wheel = new Winwheel({
@@ -251,7 +254,6 @@
         animation: {
           type: 'spinToStop', duration: 8, spins: 12, easing: 'Power4.easeOut',
           callbackSound: playTick, soundTrigger: 'pin'
-          // callbackFinished is set per spin
         },
         pointerGuide: { display: true, strokeStyle: 'red', lineWidth: 3 }
       });
@@ -260,6 +262,10 @@
 
     function startSpin() {
       if (!wheel) { alert('Load a class first or ensure there are slices.'); return; }
+      if (!auth.currentUser) {
+        alert('Sign in first — Firestore writes are blocked when signed out.');
+        return;
+      }
       document.getElementById('winnerPopup').style.display = 'none';
       wheel.stopAnimation(false);
       wheel.rotationAngle = 0;
@@ -273,7 +279,7 @@
 
       const ok = spinToAnySliceOfWinner(wheel, pick.student);
       if (!ok) {
-        alert('Winner has no visible slice. Consider giving everyone a base visual slice.');
+        alert('Winner has no visible slice. Consider a small BASE_VISUAL.');
         return;
       }
 
@@ -283,22 +289,21 @@
 
     function announceWinnerWithStats(winner, students) {
       safePlay(victoryAudio);
-      confetti({ particleCount: 400, spread: 180, startVelocity: 40, ticks: 200, origin: { x: 0.5, y: 0.6 }, scalar: 1.2, zIndex: 2000 });
+      confetti({ particleCount: 400, spread: 180, startVelocity: 40, ticks: 200,
+        origin: { x: 0.5, y: 0.6 }, scalar: 1.2, zIndex: 2000 });
       const popup = document.getElementById('winnerPopup');
       document.getElementById('winnerMessage').textContent = `🎉 Congratulations, ${winner.name}! 🎉`;
       popup.style.display = 'flex';
 
-      // Update local anti-repeat immediately
+      // Local anti-repeat
       window.recentWinners = [winner.id, ...(window.recentWinners || [])].slice(0, 1);
 
-      // Persist to Firestore
+      // Persist
       const classId = document.getElementById('classSelect').value;
       afterWin(classId, students, winner);
     }
 
-    // ────────────────────────────────────────────
-    // PERSISTENCE: WRITE AFTER WIN
-    // ────────────────────────────────────────────
+    // Persist spin result
     async function afterWin(classId, students, winner) {
       if (!classId) return;
       const classRef = db.collection('classes').doc(classId);
@@ -314,13 +319,9 @@
               missStreak: 0
             }
           };
-
-          // OPTIONAL: also award +1 point (uncomment if desired)
-          // winnerUpdate.points = {
-          //   total: (s.points?.total || 0) + 1,
-          //   daily: (s.points?.daily || 0) + 1
-          // };
-
+          // OPTIONAL: also award +1 point
+          // const pts = s.points || { daily:0, total:0 };
+          // winnerUpdate.points = { daily:(+pts.daily||0)+1, total:(+pts.total||0)+1 };
           batch.set(ref, winnerUpdate, { merge: true });
         } else {
           batch.set(ref, { stats: { missStreak: Math.max(0, (s.stats?.missStreak || 0) + 1) } }, { merge: true });
@@ -334,21 +335,24 @@
         }
       }, { merge: true });
 
-      try { await batch.commit(); }
-      catch (e) { console.warn('afterWin commit failed:', e); }
+      try {
+        await batch.commit();
+      } catch (e) {
+        console.error('afterWin commit failed:', e);
+        alert('Could not save spin results to Firestore. Are you signed in and allowed to write? Check console.');
+      }
     }
 
-    // ────────────────────────────────────────────
-    // DATA LOAD & UI
-    // ────────────────────────────────────────────
+    // UI: populate classes, watch students, load recentWinners
     async function populateClasses() {
       const sel = document.getElementById('classSelect');
       const snap = await db.collection('classes').get();
       sel.innerHTML = '<option value="">-- Select Class --</option>';
       snap.forEach(d => {
+        const data = d.data() || {};
         const opt = document.createElement('option');
         opt.value = d.id;
-        opt.textContent = d.id;
+        opt.textContent = data.displayName || d.id;
         sel.appendChild(opt);
       });
     }
@@ -362,7 +366,7 @@
       segmentColors = {};
       ownerIndexMap = Object.create(null);
       window._lastStudents = [];
-      window.recentWinners = []; // will be overwritten by persisted value if present
+      window.recentWinners = []; // will be overwritten by persisted value
     }
 
     function loadSpinner() {
@@ -371,7 +375,7 @@
 
       resetPerClassState();
 
-      // Load persisted anti-repeat window once
+      // Load persisted anti-repeat
       db.collection('classes').doc(cls).get()
         .then(doc => {
           const cs = doc.data()?.classState;
@@ -382,7 +386,7 @@
       unsubscribeListener = db
         .collection('classes').doc(cls).collection('students')
         .onSnapshot(snapshot => {
-          // Detect daily increases → sound
+          // Sound on daily increases
           const current = {};
           snapshot.forEach(d => current[d.id] = d.data().points?.daily || 0);
           if (!firstSnapshot) {
@@ -393,17 +397,16 @@
           firstSnapshot = false;
           previousDaily = current;
 
-          // Build facade & UI
           const { students, visualSegments } = buildVisualSegmentsFromSnapshot(snapshot, segmentColors);
           window._lastStudents = students;
 
+          // Sidebar
           const listDiv = document.getElementById('studentList');
           listDiv.innerHTML = '<h2>Student List</h2>';
           students.forEach(s => {
-            const row = document.createElement('div');
-            row.className = 'student-row';
-            const pts = document.createElement('span'); pts.className='student-points'; pts.textContent = s.daily; pts.style.color = s.color;
-            const nm  = document.createElement('span'); nm.className='student-name'; nm.textContent = s.name;
+            const row = document.createElement('div'); row.className='student-row';
+            const pts = document.createElement('span'); pts.className='student-points'; pts.textContent=s.daily; pts.style.color=s.color;
+            const nm  = document.createElement('span'); nm.className='student-name'; nm.textContent=s.name;
             row.appendChild(pts); row.appendChild(nm); listDiv.appendChild(row);
           });
 
@@ -413,9 +416,34 @@
         });
     }
 
-    // ────────────────────────────────────────────
-    // EVENTS & INIT
-    // ────────────────────────────────────────────
+    // AUTH UI
+    const authStatus = document.getElementById('authStatus');
+    const signInBtn  = document.getElementById('signInBtn');
+    const signOutBtn = document.getElementById('signOutBtn');
+
+    function updateAuthUI(user){
+      if (user) {
+        signInBtn.style.display = 'none';
+        signOutBtn.style.display = '';
+        authStatus.textContent = `Signed in as ${user.displayName || user.email || user.uid}`;
+      } else {
+        signInBtn.style.display = '';
+        signOutBtn.style.display = 'none';
+        authStatus.textContent = 'Not signed in — stats will NOT save.';
+      }
+    }
+    auth.onAuthStateChanged(updateAuthUI);
+
+    signInBtn.addEventListener('click', async () => {
+      try { await auth.signInWithPopup(provider); }
+      catch (e) {
+        console.warn('Sign-in failed:', e);
+        alert('Sign-in failed. Check pop-up blockers and console.');
+      }
+    });
+    signOutBtn.addEventListener('click', async () => { await auth.signOut(); });
+
+    // Events & init
     document.getElementById('wheelCanvas').addEventListener('click', startSpin);
     document.getElementById('spinBtn').addEventListener('click', startSpin);
     document.getElementById('classSelect').addEventListener('change', loadSpinner);
