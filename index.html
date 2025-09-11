@@ -145,8 +145,8 @@
 
     // === PITY / COOLDOWN TUNING ===
     // Adjust these three to change “about five spins” behavior.
-    const GAMMA = 8.0;              // starting cooldown penalty for the most recent winner
-    const COOL_DECAY = 0.8;         // penalty multiplier per subsequent spin (0.8 ≈ fades over ~5 spins)
+    const GAMMA = 10.0;              // starting cooldown penalty for the most recent winner
+    const COOL_DECAY = 1.2;         // penalty multiplier per subsequent spin (0.8 ≈ fades over ~5 spins)
     const MAX_COOLDOWN_SPINS = 5;   // don't apply cooldown beyond this many past spins
     const MAX_HISTORY = 10;         // how many recent winners to remember total
 
