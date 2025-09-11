@@ -31,13 +31,17 @@
   box-sizing:border-box;
 }
 
-/* make the left pane prefer a square footprint */
 #spinnerContainer{
-  /* already have align/justify; keep them */
-  padding:12px;         /* was 8px — gives the wheel breathing room */
-  box-sizing:border-box;
-  aspect-ratio:1/1;
+  flex:2;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(30,30,30,0.8);
+  padding:12px;                 /* keep your gutter */
+  box-sizing:border-box;        /* important */
+  /* remove: aspect-ratio:1/1; */
 }
+
 
 
     #controlsContainer { flex:1; max-width:340px; background:rgba(30,30,30,0.8);
@@ -476,23 +480,27 @@
 
     function layoutWheelCanvas(){
   const box = document.getElementById('spinnerContainer');
+  const cs  = getComputedStyle(box);
 
-  // 1) Size the canvas from its container (what you already added)
-  const cssSizePx = Math.floor(Math.min(box.clientWidth, box.clientHeight));
+  // subtract the padding so we size to the true inner square
+  const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+  const padY = parseFloat(cs.paddingTop)  + parseFloat(cs.paddingBottom);
+
+  const availW = Math.max(0, box.clientWidth  - padX);
+  const availH = Math.max(0, box.clientHeight - padY);
+  const cssSizePx = Math.floor(Math.min(availW, availH));
+
   const canvas = setupHiDPICanvas('wheelCanvas', cssSizePx);
 
-  // 2) If the wheel exists, re-center it and shrink its radius a hair
+  // keep the circle fully inside the square
   if (wheel) {
-    const cw = canvas.clientWidth;   // CSS pixels
-    const ch = canvas.clientHeight;
-    const gutter = 14;               // visual padding inside the canvas
-    wheel.centerX = Math.floor(cw / 2);
-    wheel.centerY = Math.floor(ch / 2);
-    wheel.outerRadius = Math.floor(Math.min(cw, ch) / 2) - gutter;
+    const gutter = 10; // tweak 8–16 if you want more/less rim space
+    wheel.centerX    = Math.floor(cssSizePx / 2);
+    wheel.centerY    = Math.floor(cssSizePx / 2);
+    wheel.outerRadius = Math.floor(cssSizePx / 2) - gutter;
     wheel.draw();
   }
 }
-
 window.addEventListener('resize', layoutWheelCanvas, { passive:true });
 window.addEventListener('orientationchange', layoutWheelCanvas, { passive:true });
 
