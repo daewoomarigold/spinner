@@ -33,10 +33,12 @@
 
 /* make the left pane prefer a square footprint */
 #spinnerContainer{
-  aspect-ratio:1/1;           /* keeps it square inside the flex row */
-  align-items:center;
-  justify-content:center;
+  /* already have align/justify; keep them */
+  padding:12px;         /* was 8px — gives the wheel breathing room */
+  box-sizing:border-box;
+  aspect-ratio:1/1;
 }
+
 
     #controlsContainer { flex:1; max-width:340px; background:rgba(30,30,30,0.8);
       border-left:1px solid #555; padding:16px; box-sizing:border-box; overflow-y:auto; }
@@ -474,9 +476,21 @@
 
     function layoutWheelCanvas(){
   const box = document.getElementById('spinnerContainer');
+
+  // 1) Size the canvas from its container (what you already added)
   const cssSizePx = Math.floor(Math.min(box.clientWidth, box.clientHeight));
-  setupHiDPICanvas('wheelCanvas', cssSizePx);
-  if (wheel) wheel.draw();
+  const canvas = setupHiDPICanvas('wheelCanvas', cssSizePx);
+
+  // 2) If the wheel exists, re-center it and shrink its radius a hair
+  if (wheel) {
+    const cw = canvas.clientWidth;   // CSS pixels
+    const ch = canvas.clientHeight;
+    const gutter = 14;               // visual padding inside the canvas
+    wheel.centerX = Math.floor(cw / 2);
+    wheel.centerY = Math.floor(ch / 2);
+    wheel.outerRadius = Math.floor(Math.min(cw, ch) / 2) - gutter;
+    wheel.draw();
+  }
 }
 
 window.addEventListener('resize', layoutWheelCanvas, { passive:true });
@@ -485,6 +499,7 @@ window.addEventListener('orientationchange', layoutWheelCanvas, { passive:true }
 // Initial mount
 layoutWheelCanvas();
 populateClasses();
+
   </script>
 </body>
 </html>
