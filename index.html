@@ -20,7 +20,24 @@
     #mainContainer { display:flex; height:calc(100vh - 50px); position:relative; z-index:1; }
     #spinnerContainer { flex:2; display:flex; align-items:center; justify-content:center;
       background:rgba(30,30,30,0.8); padding:8px; box-sizing:border-box; }
-    #wheelCanvas { width:min(80vw,80vh); height:min(80vw,80vh); border:none; background:transparent; cursor:pointer; }
+    /* fill the available square without fighting JS */
+#wheelCanvas{
+  width:100%;
+  height:100%;
+  display:block;
+  border:none;
+  background:transparent;
+  cursor:pointer;
+  box-sizing:border-box;
+}
+
+/* make the left pane prefer a square footprint */
+#spinnerContainer{
+  aspect-ratio:1/1;           /* keeps it square inside the flex row */
+  align-items:center;
+  justify-content:center;
+}
+
     #controlsContainer { flex:1; max-width:340px; background:rgba(30,30,30,0.8);
       border-left:1px solid #555; padding:16px; box-sizing:border-box; overflow-y:auto; }
     #controlsContainer select, #controlsContainer button, #controlsContainer label {
@@ -455,9 +472,19 @@
       victoryAudio.pause(); victoryAudio.currentTime = 0;
     });
 
-    const sizePx = Math.floor(Math.min(window.innerWidth, window.innerHeight) * 0.8);
-    setupHiDPICanvas('wheelCanvas', sizePx);
-    populateClasses();
+    function layoutWheelCanvas(){
+  const box = document.getElementById('spinnerContainer');
+  const cssSizePx = Math.floor(Math.min(box.clientWidth, box.clientHeight));
+  setupHiDPICanvas('wheelCanvas', cssSizePx);
+  if (wheel) wheel.draw();
+}
+
+window.addEventListener('resize', layoutWheelCanvas, { passive:true });
+window.addEventListener('orientationchange', layoutWheelCanvas, { passive:true });
+
+// Initial mount
+layoutWheelCanvas();
+populateClasses();
   </script>
 </body>
 </html>
