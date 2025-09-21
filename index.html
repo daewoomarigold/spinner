@@ -146,9 +146,12 @@
     // === PITY / COOLDOWN TUNING ===
     // Adjust these three to change “about five spins” behavior.
     const GAMMA = 10.0;              // starting cooldown penalty for the most recent winner
-    const COOL_DECAY = 0.9;         // penalty multiplier per subsequent spin (0.8 ≈ fades over ~5 spins)
-    const MAX_COOLDOWN_SPINS = 5;   // don't apply cooldown beyond this many past spins
-    const MAX_HISTORY = 10;         // how many recent winners to remember total
+    const COOL_DECAY = 0.9;          // penalty multiplier per subsequent spin
+    const MAX_COOLDOWN_SPINS = 5;    // don't apply cooldown beyond this many past spins
+    const MAX_HISTORY = 10;          // how many recent winners to remember total
+
+    // NEW: Eligibility gate (require at least 1 daily point to be pickable)
+    const MIN_DAILY_FOR_ELIGIBILITY = 1;
 
     // Sounds
     const tickAudio     = new Audio('tick.mp3');          tickAudio.volume     = 0.3;
@@ -222,7 +225,7 @@
       return { students, visualSegments };
     }
 
-    // Fairness pick
+    // Fairness pick with eligibility gate
     function pickWeightedFair(students, { pity=true, noRepeatK=1 } = {}) {
       const now = Date.now();
       const dayMs = 86400000;
@@ -234,7 +237,16 @@
       const recent = Array.isArray(window.recentWinners) ? window.recentWinners : [];
 
       let total = 0;
+      let eligibleCount = 0;
+
       const weights = students.map(s => {
+        const dailyPoints = Math.max(0, s.daily || 0);
+
+        // Eligibility: must have at least MIN_DAILY_FOR_ELIGIBILITY daily points today
+        if (dailyPoints < MIN_DAILY_FOR_ELIGIBILITY) return 0;
+
+        eligibleCount++;
+
         // Cooldown penalty that decays over several spins
         let cooldown = 0;
         const idx = recent.indexOf(s.id);
@@ -251,21 +263,23 @@
 
         const pityBoost = pity ? (alpha*miss + beta*daysSince) : 0;
 
-        const w = Math.max(0, base + (s.daily || 0) + pityBoost - cooldown);
+        const w = Math.max(0, base + dailyPoints + pityBoost - cooldown);
         total += w;
         return w;
       });
 
-      if (total <= 0) return null;
+      if (eligibleCount === 0) return { index:-1, student:null, weights, reason:'noEligible' };
+      if (total <= 0) return { index:-1, student:null, weights, reason:'zeroTotal' };
 
       let r = Math.random() * total;
       for (let i=0;i<students.length;i++){
-        if (weights[i] <= 0) continue;
-        r -= weights[i];
+        const w = weights[i];
+        if (w <= 0) continue;
+        r -= w;
         if (r <= 0) return { index:i, student:students[i], weights };
       }
       const i = weights.findIndex(w=>w>0);
-      return i>=0 ? { index:i, student:students[i], weights } : null;
+      return i>=0 ? { index:i, student:students[i], weights } : { index:-1, student:null, weights, reason:'fallback' };
     }
 
     // Spin targeting (use Winwheel's getRandomForSegment on a 1-based index)
@@ -313,7 +327,13 @@
 
       // Preselect via fairness BEFORE forcing the wheel
       const pick = pickWeightedFair(students, { pity:true, noRepeatK:1 });
-      if (!pick) { alert('No eligible students to spin.'); return; }
+      if (!pick || !pick.student) {
+        const msg = pick?.reason === 'noEligible'
+          ? `No eligible students: each student needs at least ${MIN_DAILY_FOR_ELIGIBILITY} daily point to be selected.`
+          : 'No eligible students to spin. Check points and cooldowns.';
+        alert(msg);
+        return;
+      }
 
       preselectedWinner = { id: pick.student.id, name: pick.student.name, _at: Date.now() };
 
