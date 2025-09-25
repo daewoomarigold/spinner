@@ -10,8 +10,6 @@
   <script src="https://cdn.jsdelivr.net/gh/zarocknz/javascript-winwheel@master/Winwheel.min.js"></script>
   <!-- Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
-  <!-- NoSleep fallback for TVs without Wake Lock API -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/nosleep/0.12.0/NoSleep.min.js" integrity="sha512-yYy5S5lE0N5c3R4XvGQk3b6zKqzvE1Gxw6+gJx3rQpD4+fQdJWRwYf7wMR0u8TzFqY8E0xqJ2Oa2a8gt2k8xqQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
   <style>
     html, body { margin:0; padding:0; height:100%;
@@ -82,10 +80,6 @@
       <span class="subtle">Winners cool off for ~5 spins; non-winners quietly get a boost.</span>
       <label class="hint">Fairness mode is always on: no back-to-back winners and a gentle pity timer.</label>
 
-      <!-- NEW: Keep screen awake controls -->
-      <button id="wakeLockBtn" class="authBtn" title="Prevent the screen from sleeping">Keep Screen Awake</button>
-      <span id="wakeLockStatus" class="subtle">Sleep prevention: off</span>
-
       <div id="studentList"><h2>Student List</h2></div>
     </div>
   </div>
@@ -113,7 +107,7 @@
       apiKey:"AIzaSyDNNuSuHAqpms8UvOTCDmrEnXN648eTkxo",
       authDomain:"classroompoints.firebaseapp.com",
       projectId:"classroompoints",
-      storageBucket:"classroompointsfirebasestorage.app", // NOTE: left as in your original
+      storageBucket:"classroompoints.firebasestorage.app",
       messagingSenderId:"176805498618",
       appId:"1:176805498618:web:2071d90825bafb78154343",
       measurementId:"G-BLJYG5JYQW"
@@ -150,6 +144,7 @@
     const BASE_VISUAL        = 0;
 
     // === PITY / COOLDOWN TUNING ===
+    // Adjust these three to change “about five spins” behavior.
     const GAMMA = 10.0;              // starting cooldown penalty for the most recent winner
     const COOL_DECAY = 0.9;          // penalty multiplier per subsequent spin
     const MAX_COOLDOWN_SPINS = 5;    // don't apply cooldown beyond this many past spins
@@ -165,119 +160,6 @@
     function safePlay(a){ try{ a.currentTime=0; a.play().catch(()=>{});}catch(e){} }
     function playTick(){ safePlay(tickAudio); }
     function playAddPoint(){ safePlay(addPointAudio); }
-
-   // === Keep-screen-awake (Wake Lock API + NoSleep fallback) ===
-let wakeLock = null;
-let tryingToStayAwake = false;
-let noSleep = null;
-
-const wakeBtn = document.getElementById('wakeLockBtn');
-const wakeStatus = document.getElementById('wakeLockStatus');
-
-function setWakeUI(on, note){
-  if (!wakeBtn || !wakeStatus) return;
-  wakeBtn.textContent = on ? 'Allow Sleep' : 'Keep Screen Awake';
-  wakeStatus.textContent = `Sleep prevention: ${on ? 'on' : 'off'}${note ? ' — ' + note : ''}`;
-}
-
-async function enableStayAwake() {
-  tryingToStayAwake = true;
-
-  // Native Screen Wake Lock API (requires HTTPS and support)
-  // @ts-ignore
-  if (location.protocol === 'https:' && 'wakeLock' in navigator && navigator.wakeLock?.request) {
-    try {
-      // @ts-ignore
-      wakeLock = await navigator.wakeLock.request('screen');
-      wakeLock.addEventListener?.('release', () => { if (tryingToStayAwake) setWakeUI(false, 'released'); });
-      setWakeUI(true, 'native');
-      return true;
-    } catch (e) {
-      console.warn('Wake Lock request failed, falling back:', e);
-      // fall through to NoSleep
-    }
-  } else if (location.protocol !== 'https:') {
-    setWakeUI(false, 'needs HTTPS');
-  }
-
-  // Fallback: NoSleep.js (uses tiny looping video; needs user gesture on many TVs)
-  try {
-    if (!noSleep && window.NoSleep) noSleep = new window.NoSleep();
-    if (noSleep && !noSleep.enabled) {
-      await noSleep.enable(); // must be inside a user gesture on many devices
-      setWakeUI(true, 'fallback');
-      return true;
-    } else if (noSleep && noSleep.enabled) {
-      setWakeUI(true, 'fallback');
-      return true;
-    }
-  } catch (e) {
-    console.warn('NoSleep enable failed:', e);
-  }
-
-  setWakeUI(false, 'blocked');
-  return false;
-}
-
-async function disableStayAwake() {
-  tryingToStayAwake = false;
-  try { if (wakeLock && wakeLock.release) await wakeLock.release(); } catch {}
-  wakeLock = null;
-  try { if (noSleep && noSleep.enabled && noSleep.disable) noSleep.disable(); } catch {}
-  setWakeUI(false);
-}
-
-// Re-acquire when returning to tab/app
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && tryingToStayAwake) void enableStayAwake();
-});
-
-// Make the toggle respond to TVs: click, pointer, and keyboard
-function bindWakeToggle(el){
-  if (!el) return;
-  const toggle = async () => {
-    if (tryingToStayAwake) { await disableStayAwake(); }
-    else { await enableStayAwake(); }
-  };
-
-  el.addEventListener('click', toggle);
-  el.addEventListener('pointerup', toggle);
-  el.addEventListener('keydown', (e) => {
-    // TVs often send Enter/OK as keyboard events
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
-  });
-  // ensure it’s focusable by remotes
-  el.setAttribute('tabindex', '0');
-  el.setAttribute('role', 'button');
-}
-bindWakeToggle(wakeBtn);
-
-// One-time global gesture catcher: first interaction anywhere tries to enable
-let triedGlobalEnable = false;
-function primeOnAnyGesture(){
-  if (triedGlobalEnable) return;
-  triedGlobalEnable = true;
-  const onceEnable = async () => { 
-    // Don’t flip the UI to "on" unless user has pressed the toggle,
-    // but do try to prime the wake lock so later toggles work.
-    await enableStayAwake(); 
-    document.removeEventListener('click', onceEnable, true);
-    document.removeEventListener('pointerup', onceEnable, true);
-    document.removeEventListener('keydown', onceEnable, true);
-  };
-  document.addEventListener('click', onceEnable, true);
-  document.addEventListener('pointerup', onceEnable, true);
-  document.addEventListener('keydown', onceEnable, true);
-}
-primeOnAnyGesture();
-
-// Also ensure first spin attempts to enable (user gesture path)
-const _origStartSpin = startSpin;
-startSpin = function wrappedStartSpin(){
-  if (!tryingToStayAwake) { void enableStayAwake(); }
-  return _origStartSpin();
-};
-
 
     // Hi-DPI canvas
     function setupHiDPICanvas(id, cssSizePx=800) {
@@ -470,13 +352,6 @@ startSpin = function wrappedStartSpin(){
       };
       wheel.startAnimation();
     }
-
-    // Ensure first spin also activates wake lock (satisfies user gesture requirement)
-    const _origStartSpin = startSpin;
-    startSpin = function wrappedStartSpin() {
-      if (!tryingToStayAwake) { void enableStayAwake(); }
-      return _origStartSpin();
-    };
 
     function announceWinnerWithStats(winner, students) {
       // Override with preselected (source of truth)
