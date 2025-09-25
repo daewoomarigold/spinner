@@ -5,401 +5,569 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Class Spinner</title>
 
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-
   <!-- GSAP & Winwheel -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/2.1.3/TweenMax.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/zarocknz/javascript-winwheel@master/Winwheel.min.js"></script>
-
   <!-- Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
 
   <style>
-    /* ────────────────────────────────────────────
-       BACKGROUND GIF
-    ───────────────────────────────────────────── */
-    html, body {
-      margin: 0; padding: 0;
-      height: 100%;
-      background: url('islandvideo.gif') no-repeat center center fixed;
-      background-size: cover;
-      color: #f1f1f1;
-      font-family: sans-serif;
-      overflow: hidden;
+    html, body { margin:0; padding:0; height:100%;
+      background:url('islandvideo.gif') no-repeat center center fixed;
+      background-size:cover; color:#f1f1f1; font-family:sans-serif; overflow:hidden; }
+    h1 { margin:0; padding:12px; background:rgba(31,31,31,0.9);
+      border-bottom:1px solid #444; text-align:center; font-size:1.4rem; position:relative; z-index:1; }
+    #mainContainer { display:flex; height:calc(100vh - 50px); position:relative; z-index:1; }
+    #spinnerContainer{
+      flex:2;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:rgba(30,30,30,0.8);
+      padding:12px;
+      box-sizing:border-box;
     }
-
-    h1 {
-      margin: 0;
-      padding: 12px;
-      background: rgba(31,31,31,0.9);
-      border-bottom: 1px solid #444;
-      text-align: center;
-      font-size: 1.4rem;
-      z-index: 1;
-      position: relative;
+    /* fill the available square without fighting JS */
+    #wheelCanvas{
+      width:100%;
+      height:100%;
+      display:block;
+      border:none;
+      background:transparent;
+      cursor:pointer;
+      box-sizing:border-box;
     }
-
-    #mainContainer {
-      display: flex;
-      height: calc(100vh - 50px);
-      z-index: 1;
-      position: relative;
-    }
-
-    /* ────────────────────────────────────────────
-       SPINNER CANVAS
-    ───────────────────────────────────────────── */
-    #spinnerContainer {
-      flex: 2;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(30,30,30,0.8);
-      padding: 8px;
-      box-sizing: border-box;
-    }
-
-    #wheelCanvas {
-      width: min(80vw, 80vh);
-      height: min(80vw, 80vh);
-      border: none;
-      background: transparent;
-      cursor: pointer;
-    }
-
-    /* ────────────────────────────────────────────
-       CONTROLS & STUDENT LIST
-    ───────────────────────────────────────────── */
-    #controlsContainer {
-      flex: 1;
-      max-width: 300px;
-      background: rgba(30,30,30,0.8);
-      border-left: 1px solid #555;
-      padding: 16px;
-      box-sizing: border-box;
-      overflow-y: auto;
-    }
-
-    #controlsContainer select {
-      width: 100%;
-      padding: 8px;
-      margin-bottom: 12px;
-      background: #3c3c3c;
-      color: #f1f1f1;
-      border: 1px solid #555;
-      font-size: 1rem;
-    }
-
-    #studentList {
-      margin-top: 24px;
-      font-size: 1.3rem;
-    }
-
-    #studentList h2 {
-      font-size: 1.1rem;
-      text-align: center;
-      margin-bottom: 8px;
-    }
-
-    .student-row {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      column-gap: 12px;
-      padding: 4px 0;
-      align-items: center;
-    }
-
-    .student-name   { text-align: left; }
-    .student-points { text-align: center; }
-
-    /* ────────────────────────────────────────────
-       WINNER POPUP
-    ───────────────────────────────────────────── */
-    #winnerPopup {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      display: none;
-      background: rgba(0,0,0,0.9);
-      justify-content: center;
-      align-items: center;
-      z-index: 2;
-    }
-
-    #winnerContent {
-      background: #3c3c3c;
-      padding: 24px 32px;
-      border-radius: 8px;
-      text-align: center;
-      color: #f1f1f1;
-      max-width: 80%;
-    }
-
-    #winnerMessage { font-size: 2rem; margin-bottom: 16px; }
-
-    #closePopup {
-      padding: 8px 16px;
-      background: #5a5a5a;
-      color: #f1f1f1;
-      border: 1px solid #777;
-      font-size: 1rem;
-      cursor: pointer;
-    }
+    #controlsContainer { flex:1; max-width:340px; background:rgba(30,30,30,0.8);
+      border-left:1px solid #555; padding:16px; box-sizing:border-box; overflow-y:auto; }
+    #controlsContainer select, #controlsContainer button, #controlsContainer label {
+      width:100%; margin-bottom:12px; font-size:1rem; }
+    #controlsContainer select { padding:8px; background:#3c3c3c; color:#f1f1f1; border:1px solid #555; }
+    #spinBtn { padding:10px; background:#4a7ef2; color:#fff; border:1px solid #3b64c0; cursor:pointer; }
+    .authBtn { padding:8px; border:1px solid #3b3b3b; background:#555; color:#fff; cursor:pointer; }
+    .subtle { font-size:0.85rem; color:#cbd5e1; margin-top:-6px; margin-bottom:12px; display:block; }
+    .hint { font-size:0.8rem; color:#9aa6b2; margin-bottom:8px; }
+    #studentList { margin-top:16px; font-size:1.2rem; }
+    #studentList h2 { font-size:1.05rem; text-align:center; margin-bottom:8px; }
+    .student-row { display:grid; grid-template-columns:auto 1fr; column-gap:12px; padding:4px 0; align-items:center; }
+    .student-name { text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .student-points { text-align:center; min-width:2ch; }
+    #winnerPopup { position:fixed; inset:0; display:none; background:rgba(0,0,0,0.9);
+      justify-content:center; align-items:center; z-index:2; }
+    #winnerContent { background:#3c3c3c; padding:24px 32px; border-radius:8px; text-align:center; color:#f1f1f1; max-width:80%; }
+    #winnerMessage { font-size:2rem; margin-bottom:16px; }
+    #closePopup { padding:8px 16px; background:#5a5a5a; color:#f1f1f1; border:1px solid #777; font-size:1rem; cursor:pointer; }
   </style>
 </head>
 <body>
-
-  <!-- Background video + dark overlay -->
   <div id="videoOverlay"></div>
-
   <h1>🎉 Spin to Select a Student! 🎉</h1>
 
   <div id="mainContainer">
     <div id="spinnerContainer">
-      <canvas id="wheelCanvas" width="800" height="800"></canvas>
+      <canvas id="wheelCanvas" width="800" height="800" aria-label="Spin wheel canvas"></canvas>
     </div>
     <div id="controlsContainer">
-      <select id="classSelect">
+      <!-- Auth controls -->
+      <button id="signInBtn" class="authBtn">Sign in (Google)</button>
+      <button id="signOutBtn" class="authBtn" style="display:none">Sign out</button>
+      <div id="authStatus" class="subtle">Not signed in — stats will NOT save.</div>
+
+      <!-- Class + spin -->
+      <select id="classSelect" aria-label="Select class">
         <option value="">-- Select Class --</option>
       </select>
-      <div id="studentList">
-        <h2>Student List</h2>
-      </div>
+      <button id="spinBtn" title="Spin (also click the wheel)">Spin</button>
+      <span class="subtle">Winners cool off for ~5 spins; non-winners quietly get a boost.</span>
+      <label class="hint">Fairness mode is always on: no back-to-back winners and a gentle pity timer.</label>
+
+      <div id="studentList"><h2>Student List</h2></div>
     </div>
   </div>
 
-  <!-- Winner Popup -->
-  <div id="winnerPopup">
+  <div id="winnerPopup" role="dialog" aria-modal="true">
     <div id="winnerContent">
       <div id="winnerMessage"></div>
       <button id="closePopup">OK</button>
     </div>
   </div>
 
-  <script>
-    // ────────────────────────────────────────────
-    // CONFIGURATION & STATE
-    // ────────────────────────────────────────────
+  <script type="module">
+    // ---------- Firebase (modular) ----------
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import {
+      getFirestore, collection, doc, getDoc, getDocs, onSnapshot,
+      query, writeBatch, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    // Use the SAME config as your admin page (this is your working key)
     const firebaseConfig = {
-      apiKey: "AIzaSyB17jY--gDsic8lCJ-jun1BdLFW_vz-tBI",
-      authDomain: "classroompoints.firebaseapp.com",
-      projectId: "classroompoints",
-      storageBucket: "classroompoints.firebasestorage.app",
-      messagingSenderId: "176805498618",
-      appId: "1:176805498618:web:2071d90825bafb78154343",
-      measurementId: "G-BLJYG5JYQW"
+      apiKey:"AIzaSyDNNuSuHAqpms8UvOTCDmrEnXN648eTkxo",
+      authDomain:"classroompoints.firebaseapp.com",
+      projectId:"classroompoints",
+      storageBucket:"classroompoints.firebasestorage.app",
+      messagingSenderId:"176805498618",
+      appId:"1:176805498618:web:2071d90825bafb78154343",
+      measurementId:"G-BLJYG5JYQW"
     };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
 
-    let wheel, segments = [], unsubscribeListener = null;
-    let previousDaily = {}, firstSnapshot = true;
-    const usedHues = new Set(), segmentColors = {};
+    const app = initializeApp(firebaseConfig);
+    if (location.protocol === 'file:') {
+      console.warn('Firebase Auth will not work from file://. Please serve over http(s).');
+    }
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
 
-    // Preload sounds
+    // ---------- State ----------
+    let wheel, segments = [];
+    let unsubscribeListener = null;
+
+    let previousDaily = {};
+    let firstSnapshot = true;
+
+    let usedHues = new Set();
+    let segmentColors = {};                  // studentId -> color
+    let ownerIndexMap = Object.create(null); // studentId -> [1-based segment indices]
+    window._lastStudents = [];               // latest students (for writes)
+    window.recentWinners = [];               // anti-repeat (persisted per class)
+
+    // NEW: spin state + preselected winner + deferred rebuild
+    let spinning = false;
+    let preselectedWinner = null;            // { id, name, _at }
+    let deferredSegments = null;
+
+    const MAX_TOTAL_SEGMENTS = 400;
+    const MAX_PER_STUDENT    = 80;
+    const BASE_VISUAL        = 0;
+
+    // === PITY / COOLDOWN TUNING ===
+    // Adjust these three to change “about five spins” behavior.
+    const GAMMA = 10.0;              // starting cooldown penalty for the most recent winner
+    const COOL_DECAY = 0.9;          // penalty multiplier per subsequent spin
+    const MAX_COOLDOWN_SPINS = 5;    // don't apply cooldown beyond this many past spins
+    const MAX_HISTORY = 10;          // how many recent winners to remember total
+
+    // NEW: Eligibility gate (require at least 1 daily point to be pickable)
+    const MIN_DAILY_FOR_ELIGIBILITY = 1;
+
+    // Sounds
     const tickAudio     = new Audio('tick.mp3');          tickAudio.volume     = 0.3;
     const addPointAudio = new Audio('addpoint.mp3');      addPointAudio.volume = 0.5;
     const victoryAudio  = new Audio('spinnerwinner.mp3'); victoryAudio.volume  = 0.7;
+    function safePlay(a){ try{ a.currentTime=0; a.play().catch(()=>{});}catch(e){} }
+    function playTick(){ safePlay(tickAudio); }
+    function playAddPoint(){ safePlay(addPointAudio); }
 
-    // ────────────────────────────────────────────
-    // COLOR HELPERS
-    // ────────────────────────────────────────────
-    function hueDistance(a, b) {
-      const d = Math.abs(a - b);
-      return Math.min(d, 360 - d);
+    // Hi-DPI canvas
+    function setupHiDPICanvas(id, cssSizePx=800) {
+      const canvas = document.getElementById(id);
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+      canvas.width  = Math.floor(cssSizePx * dpr);
+      canvas.height = Math.floor(cssSizePx * dpr);
+      canvas.style.width  = cssSizePx + 'px';
+      canvas.style.height = cssSizePx + 'px';
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+      return canvas;
     }
-    function parseHue(hsl) {
-      const m = /^hsl\((\d+),/.exec(hsl);
-      return m ? +m[1] : 0;
-    }
-    function getRandomColor(prevHue = null) {
-      let hue, tries = 0;
-      do {
-        hue = Math.floor(Math.random() * 360);
-        tries++;
-      } while (
-        (usedHues.has(hue) ||
-         (prevHue !== null && hueDistance(prevHue, hue) < 30))
-        && tries < 100
-      );
+
+    // Colors
+    function hueDistance(a,b){ const d=Math.abs(a-b); return Math.min(d,360-d); }
+    function getRandomColor(prevHue=null){
+      let hue, tries=0;
+      do{ hue=Math.floor(Math.random()*360); tries++; }
+      while((usedHues.has(hue)|| (prevHue!==null && hueDistance(prevHue,hue)<30)) && tries<100);
       usedHues.add(hue);
       return `hsl(${hue},70%,60%)`;
     }
 
-    // ────────────────────────────────────────────
-    // AUDIO HELPERS
-    // ────────────────────────────────────────────
-    function playTick() {
-      tickAudio.currentTime = 0;
-      tickAudio.play();
-    }
-    function playAddPoint() {
-      addPointAudio.currentTime = 0;
-      addPointAudio.play();
+    // Build facade segments from snapshot (1-based index list for Winwheel)
+    function buildVisualSegmentsFromSnapshot(snapshot, colorById) {
+      const students = [];
+      let totalRequested = 0;
+
+      snapshot.forEach(docSnap => {
+        const id = docSnap.id;
+        const data = docSnap.data() || {};
+        const name = data.name || id.slice(0,6);
+        const daily = Math.max(0, data.points?.daily || 0);
+        const stats = data.stats || null;
+
+        if (!colorById[id]) { colorById[id] = getRandomColor(0); }
+
+        students.push({ id, name, daily, stats, color: colorById[id], points: data.points || {} });
+        totalRequested += Math.max(0, Math.min(MAX_PER_STUDENT, daily + BASE_VISUAL));
+      });
+
+      const scale = (totalRequested > MAX_TOTAL_SEGMENTS && totalRequested > 0)
+        ? (MAX_TOTAL_SEGMENTS / totalRequested) : 1;
+
+      ownerIndexMap = Object.create(null);
+      const visualSegments = [];
+      let segIndex = 1; // 1-based for Winwheel
+
+      for (const s of students) {
+        const raw = Math.max(0, s.daily + BASE_VISUAL);
+        const clamped = Math.min(MAX_PER_STUDENT, raw);
+        const count = Math.max(0, Math.round(clamped * scale));
+
+        const list = [];
+        for (let i=0;i<count;i++){
+          visualSegments.push({ text: s.name, fillStyle: s.color, textFillStyle:'#000' });
+          list.push(segIndex++);
+        }
+        ownerIndexMap[s.id] = list; // list of 1-based segment indices
+      }
+
+      return { students, visualSegments };
     }
 
-    // ────────────────────────────────────────────
-    // WHEEL MANAGEMENT
-    // ────────────────────────────────────────────
+    // Fairness pick with eligibility gate
+    function pickWeightedFair(students, { pity=true, noRepeatK=1 } = {}) {
+      const now = Date.now();
+      const dayMs = 86400000;
+
+      const base  = 0.2;  // minimum weight
+      const alpha = 0.9;  // missStreak multiplier
+      const beta  = 0.12; // daysSinceLastWin multiplier
+
+      const recent = Array.isArray(window.recentWinners) ? window.recentWinners : [];
+
+      let total = 0;
+      let eligibleCount = 0;
+
+      const weights = students.map(s => {
+        const dailyPoints = Math.max(0, s.daily || 0);
+
+        // Eligibility: must have at least MIN_DAILY_FOR_ELIGIBILITY daily points today
+        if (dailyPoints < MIN_DAILY_FOR_ELIGIBILITY) return 0;
+
+        eligibleCount++;
+
+        // Cooldown penalty that decays over several spins
+        let cooldown = 0;
+        const idx = recent.indexOf(s.id);
+        if (idx >= 0 && idx < MAX_COOLDOWN_SPINS) {
+          cooldown = GAMMA * Math.pow(COOL_DECAY, idx);
+        }
+
+        // Hard block for back-to-back if requested
+        if (noRepeatK > 0 && idx === 0) return 0;
+
+        const miss = Math.max(0, s.stats?.missStreak || 0);
+        const lastMs = (s.stats?.lastWinAt && s.stats.lastWinAt.toMillis) ? s.stats.lastWinAt.toMillis() : null;
+        const daysSince = lastMs ? Math.max(0, (now - lastMs)/dayMs) : 30;
+
+        const pityBoost = pity ? (alpha*miss + beta*daysSince) : 0;
+
+        const w = Math.max(0, base + dailyPoints + pityBoost - cooldown);
+        total += w;
+        return w;
+      });
+
+      if (eligibleCount === 0) return { index:-1, student:null, weights, reason:'noEligible' };
+      if (total <= 0) return { index:-1, student:null, weights, reason:'zeroTotal' };
+
+      let r = Math.random() * total;
+      for (let i=0;i<students.length;i++){
+        const w = weights[i];
+        if (w <= 0) continue;
+        r -= w;
+        if (r <= 0) return { index:i, student:students[i], weights };
+      }
+      const i = weights.findIndex(w=>w>0);
+      return i>=0 ? { index:i, student:students[i], weights } : { index:-1, student:null, weights, reason:'fallback' };
+    }
+
+    // Spin targeting (use Winwheel's getRandomForSegment on a 1-based index)
+    function spinToAnySliceOfWinner(wheel, winner, rng = Math.random) {
+      const indices = ownerIndexMap[winner.id] || [];
+      if (!indices.length) return false;
+
+      const chosenIndex1Based = indices[Math.floor(rng() * indices.length)];
+      const stopAt = wheel.getRandomForSegment(chosenIndex1Based); // Winwheel API
+      wheel.animation.stopAngle = stopAt;
+      return true;
+    }
+
+    // Wheel management
     function buildWheel() {
+      if (!segments || segments.length === 0) { wheel = null; return; }
       wheel = new Winwheel({
         canvasId: 'wheelCanvas',
         numSegments: segments.length,
-        segments: segments.map(s => ({
-          text: s.text,
-          fillStyle: s.fillStyle,
-          textFillStyle: s.textFillStyle
-        })),
-        pins: {
-          number: segments.length,
-          fillStyle: 'silver',
-          outerRadius: 4
-        },
+        segments: segments.map(s => ({ text:s.text, fillStyle:s.fillStyle, textFillStyle:s.textFillStyle })),
+        pins: { number: segments.length, fillStyle: 'silver', outerRadius: 4 },
         animation: {
-          type: 'spinToStop',
-          duration: 8,
-          spins: 12,
-          easing: 'Power4.easeOut',
-          callbackSound: playTick,
-          soundTrigger: 'pin',
-          callbackFinished: announceWinner
+          type: 'spinToStop', duration: 8, spins: 12, easing: 'Power4.easeOut',
+          callbackSound: playTick, soundTrigger: 'pin'
         },
-        pointerGuide: {
-          display: true,
-          strokeStyle: 'red',
-          lineWidth: 3
-        }
+        pointerGuide: { display: true, strokeStyle: 'red', lineWidth: 3 }
       });
+      wheel.draw();
+      layoutWheelCanvas(); // ensure correct radii after (re)build
     }
 
     function startSpin() {
-      if (!wheel) { alert('Load a class first!'); return; }
+      if (!wheel) { alert('Load a class first or ensure there are slices.'); return; }
+      if (spinning) return;
+      if (!auth.currentUser) {
+        alert('Sign in first — Firestore writes are blocked when signed out.'); return;
+      }
       document.getElementById('winnerPopup').style.display = 'none';
       wheel.stopAnimation(false);
       wheel.rotationAngle = 0;
       wheel.draw();
+
+      const students = window._lastStudents || [];
+      if (!students.length) { alert('No students to choose from.'); return; }
+
+      // Preselect via fairness BEFORE forcing the wheel
+      const pick = pickWeightedFair(students, { pity:true, noRepeatK:1 });
+      if (!pick || !pick.student) {
+        const msg = pick?.reason === 'noEligible'
+          ? `No eligible students: each student needs at least ${MIN_DAILY_FOR_ELIGIBILITY} daily point to be selected.`
+          : 'No eligible students to spin. Check points and cooldowns.';
+        alert(msg);
+        return;
+      }
+
+      preselectedWinner = { id: pick.student.id, name: pick.student.name, _at: Date.now() };
+
+      // Lock the wheel to end on one of the winner's slices
+      const ok = spinToAnySliceOfWinner(wheel, pick.student);
+      if (!ok) { alert('Winner has no visible slice. Consider a small BASE_VISUAL.'); return; }
+
+      // Don’t trust wheel-reported segment; we will use preselectedWinner in the callback
+      spinning = true;
+      wheel.animation.callbackFinished = () => {
+        const indicated = wheel.getIndicatedSegment?.();
+        if (indicated && indicated.text !== preselectedWinner.name) {
+          console.warn('Mismatch (visual vs preselected):', indicated.text, '!=', preselectedWinner.name);
+        }
+        announceWinnerWithStats(pick.student, students);
+      };
       wheel.startAnimation();
     }
 
-    function announceWinner(segment) {
-      victoryAudio.currentTime = 0;
-      victoryAudio.play();
+    function announceWinnerWithStats(winner, students) {
+      // Override with preselected (source of truth)
+      if (preselectedWinner && (winner.id !== preselectedWinner.id)) {
+        console.warn('Overriding winner to preselected:', preselectedWinner.name);
+        winner = students.find(s => s.id === preselectedWinner.id) || winner;
+      }
 
-      confetti({
-        particleCount: 400,
-        spread: 180,
-        startVelocity: 40,
-        ticks: 200,
-        origin: { x: 0.5, y: 0.6 },
-        scalar: 1.2,
-        zIndex: 2000
-      });
+      safePlay(victoryAudio);
+      confetti({ particleCount: 400, spread: 180, startVelocity: 40, ticks: 200,
+        origin: { x: 0.5, y: 0.6 }, scalar: 1.2, zIndex: 2000 });
 
       const popup = document.getElementById('winnerPopup');
-      document.getElementById('winnerMessage').textContent =
-        `🎉 Congratulations, ${segment.text}! 🎉`;
+      document.getElementById('winnerMessage').textContent = `🎉 Congratulations, ${winner.name}! 🎉`;
       popup.style.display = 'flex';
+
+      // Local history (keep more than one entry)
+      window.recentWinners = [winner.id, ...(window.recentWinners || [])].slice(0, MAX_HISTORY);
+
+      // Persist
+      const classId = document.getElementById('classSelect').value;
+      afterWin(classId, students, winner).catch(e => {
+        console.error('afterWin commit failed:', e);
+        alert('Could not save spin results to Firestore. Check console.');
+      });
+
+      // Post-spin tidy + apply any deferred rebuild
+      spinning = false;
+      preselectedWinner = null;
+      if (deferredSegments) {
+        segments = deferredSegments;
+        deferredSegments = null;
+        buildWheel();
+      }
     }
 
-    // ────────────────────────────────────────────
-    // DATA LOADING & UI UPDATE
-    // ────────────────────────────────────────────
+    // Persist spin result (modular)
+    async function afterWin(classId, students, winner) {
+      if (!classId) return;
+      const classRef = doc(db, 'classes', classId);
+      const batch = writeBatch(db);
+
+      students.forEach(s => {
+        const ref = doc(db, 'classes', classId, 'students', s.id);
+        if (s.id === winner.id) {
+          const payload = {
+            stats: {
+              wins: (s.stats?.wins || 0) + 1,
+              lastWinAt: serverTimestamp(),
+              missStreak: 0
+            }
+          };
+          batch.set(ref, payload, { merge: true });
+        } else {
+          batch.set(ref, { stats: { missStreak: Math.max(0, (s.stats?.missStreak || 0) + 1) } }, { merge: true });
+        }
+      });
+
+      batch.set(classRef, {
+        classState: {
+          recentWinners: [winner.id, ...(window.recentWinners || [])].slice(0, MAX_HISTORY),
+          lastSpinAt: serverTimestamp()
+        }
+      }, { merge: true });
+
+      await batch.commit();
+    }
+
+    // UI: populate classes, watch students, load recentWinners
     async function populateClasses() {
       const sel = document.getElementById('classSelect');
-      const snap = await db.collection('classes').get();
+      const snap = await getDocs(collection(db, 'classes'));
       sel.innerHTML = '<option value="">-- Select Class --</option>';
       snap.forEach(d => {
+        const data = d.data() || {};
         const opt = document.createElement('option');
         opt.value = d.id;
-        opt.textContent = d.id;
+        opt.textContent = data.displayName || d.id;
         sel.appendChild(opt);
       });
+    }
+
+    function resetPerClassState() {
+      if (unsubscribeListener) { unsubscribeListener(); unsubscribeListener = null; }
+      segments = [];
+      previousDaily = {};
+      firstSnapshot = true;
+      usedHues = new Set();
+      segmentColors = {};
+      ownerIndexMap = Object.create(null);
+      window._lastStudents = [];
+      window.recentWinners = []; // will be overwritten by persisted value
+      spinning = false;
+      preselectedWinner = null;
+      deferredSegments = null;
     }
 
     function loadSpinner() {
       const cls = document.getElementById('classSelect').value;
       if (!cls) return;
 
-      if (unsubscribeListener) unsubscribeListener();
-      segments = [];
+      resetPerClassState();
 
-      unsubscribeListener = db
-        .collection('classes').doc(cls).collection('students')
-        .onSnapshot(snapshot => {
-          // detect daily-point increases
+      // Load persisted anti-repeat
+      getDoc(doc(db, 'classes', cls))
+        .then(snap => {
+          const cs = snap.exists() ? (snap.data().classState || {}) : {};
+          window.recentWinners = Array.isArray(cs.recentWinners) ? cs.recentWinners : [];
+        })
+        .catch(() => { window.recentWinners = []; });
+
+      unsubscribeListener = onSnapshot(
+        query(collection(db, 'classes', cls, 'students')),
+        (snapshot) => {
+          // Sound on daily increases
           const current = {};
-          snapshot.forEach(d => current[d.id] = d.data().points?.daily || 0);
+          snapshot.forEach(d => current[d.id] = (d.data().points?.daily || 0));
           if (!firstSnapshot) {
             Object.keys(current).forEach(id => {
-              if (current[id] > (previousDaily[id] || 0)) {
-                playAddPoint();
-              }
+              if (current[id] > (previousDaily[id] || 0)) playAddPoint();
             });
           }
           firstSnapshot = false;
           previousDaily = current;
 
-          // rebuild list & segments
+          const { students, visualSegments } = buildVisualSegmentsFromSnapshot(snapshot, segmentColors);
+          window._lastStudents = students;
+
+          // Sidebar
           const listDiv = document.getElementById('studentList');
           listDiv.innerHTML = '<h2>Student List</h2>';
-          segments = [];
-          let prevHue = null;
-
-          snapshot.forEach(docSnap => {
-            const { name, points } = docSnap.data();
-            const daily = points?.daily || 0;
-
-            if (!segmentColors[name]) {
-              segmentColors[name] = getRandomColor(prevHue);
-            }
-            prevHue = parseHue(segmentColors[name]);
-
-            // sidebar row
-            const row = document.createElement('div');
-            row.className = 'student-row';
-            const pts = document.createElement('span');
-            pts.className = 'student-points';
-            pts.textContent = daily;
-            pts.style.color = segmentColors[name];
-            const nm = document.createElement('span');
-            nm.className = 'student-name';
-            nm.textContent = name;
-            row.appendChild(pts);
-            row.appendChild(nm);
-            listDiv.appendChild(row);
-
-            // wheel segments
-            for (let i = 0; i < daily; i++) {
-              segments.push({
-                text: name,
-                fillStyle: segmentColors[name],
-                textFillStyle: '#000'
-              });
-            }
+          students.forEach(s => {
+            const row = document.createElement('div'); row.className='student-row';
+            const pts = document.createElement('span'); pts.className='student-points'; pts.textContent=s.daily; pts.style.color=s.color;
+            const nm  = document.createElement('span'); nm.className='student-name'; nm.textContent = s.name;
+            row.appendChild(pts); row.appendChild(nm); listDiv.appendChild(row);
           });
 
-          buildWheel();
-        });
+          // Defer rebuild if spinning to avoid geometry drift
+          if (spinning) {
+            deferredSegments = visualSegments;
+          } else {
+            segments = visualSegments;
+            if (segments.length === 0) { wheel = null; return; }
+            buildWheel();
+          }
+        },
+        (err) => console.warn('students listen error:', err)
+      );
     }
 
-    // ────────────────────────────────────────────
-    // EVENTS & INITIALIZATION
-    // ────────────────────────────────────────────
-    document.getElementById('wheelCanvas')
-            .addEventListener('click', startSpin);
+    // AUTH UI (modular)
+    const authStatus = document.getElementById('authStatus');
+    const signInBtn  = document.getElementById('signInBtn');
+    const signOutBtn = document.getElementById('signOutBtn');
 
-    document.getElementById('classSelect')
-            .addEventListener('change', loadSpinner);
+    function updateAuthUI(user){
+      if (user) {
+        signInBtn.style.display = 'none';
+        signOutBtn.style.display = '';
+        authStatus.textContent = `Signed in as ${user.displayName || user.email || user.uid}`;
+      } else {
+        signInBtn.style.display = '';
+        signOutBtn.style.display = 'none';
+        authStatus.textContent = 'Not signed in — stats will NOT save.';
+      }
+    }
+    onAuthStateChanged(auth, updateAuthUI);
 
-    document.getElementById('closePopup')
-            .addEventListener('click', () => {
+    signInBtn.addEventListener('click', async () => {
+      try { await signInWithPopup(auth, provider); }
+      catch (e) {
+        console.warn('Sign-in failed:', e);
+        alert(`Sign-in failed: ${e.code || e.message}`);
+      }
+    });
+    signOutBtn.addEventListener('click', async () => { await signOut(auth); });
+
+    // Events & init
+    document.getElementById('wheelCanvas').addEventListener('click', startSpin);
+    document.getElementById('spinBtn').addEventListener('click', startSpin);
+    document.getElementById('classSelect').addEventListener('change', loadSpinner);
+    document.getElementById('closePopup').addEventListener('click', () => {
       document.getElementById('winnerPopup').style.display = 'none';
-      victoryAudio.pause();
-      victoryAudio.currentTime = 0;
+      victoryAudio.pause(); victoryAudio.currentTime = 0;
     });
 
+    // Layout helpers
+    function layoutWheelCanvas(){
+      const box = document.getElementById('spinnerContainer');
+      const cs  = getComputedStyle(box);
+
+      // subtract the padding so we size to the true inner square
+      const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+      const padY = parseFloat(cs.paddingTop)  + parseFloat(cs.paddingBottom);
+
+      const availW = Math.max(0, box.clientWidth  - padX);
+      const availH = Math.max(0, box.clientHeight - padY);
+      const cssSizePx = Math.floor(Math.min(availW, availH));
+
+      setupHiDPICanvas('wheelCanvas', cssSizePx);
+
+      // keep the circle fully inside the square
+      if (wheel) {
+        const gutter = 10; // tweak 8–16 if you want more/less rim space
+        wheel.centerX     = Math.floor(cssSizePx / 2);
+        wheel.centerY     = Math.floor(cssSizePx / 2);
+        wheel.outerRadius = Math.floor(cssSizePx / 2) - gutter;
+        wheel.draw();
+      }
+    }
+    window.addEventListener('resize', layoutWheelCanvas, { passive:true });
+    window.addEventListener('orientationchange', layoutWheelCanvas, { passive:true });
+
+    // Initial mount
+    layoutWheelCanvas();
     populateClasses();
   </script>
 </body>
